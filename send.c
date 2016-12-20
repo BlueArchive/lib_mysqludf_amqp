@@ -48,7 +48,22 @@ lib_mysqludf_amqp_send_init(UDF_INIT *initid, UDF_ARGS *args, char *message)
         goto init_error_destroy;;
     }
 
-    rc = amqp_socket_open(conn_info->socket, args->args[0], (int)(*((long long *) args->args[1])));
+    // wait no longer than 10ms for a connection to RabbitMQ
+    // Cache invalidation signaling is (should be) robust
+    // enough to miss an invalidation signal
+    // Given than this can be called on every insert/update/delete row
+    // We don't want to tie up a MySQL thread when connecting to RabbitMQ
+    // as that could be a Bad Thing (tm)
+    struct timeval timeout;
+    memset(&timeout, 0, sizeof(struct timeval));
+    timeout.tv_usec = 10 * 1000;   // wait no longer than 10ms for connection
+
+    rc = amqp_socket_open_noblock(
+        conn_info->socket,
+        args->args[0],
+        (int)(*((long long *) args->args[1])),
+        &timeout
+    );
     if (rc < 0) {
         (void) strncpy(message, "lib_mysqludf_amqp_send: socket open error", MYSQL_ERRMSG_SIZE);
         goto init_error_destroy;
