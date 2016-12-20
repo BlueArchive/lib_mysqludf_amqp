@@ -86,8 +86,10 @@ init_error_destroy:
     (void) amqp_destroy_connection(conn_info->conn);
     free(initid->ptr);
     initid->ptr = NULL;
+    initid->maybe_null = 1; /* returns NULL */
+    initid->const_item = 0; /* may return something different if called again */
 
-    return 1;
+    return 0;
 }
 
 char*
@@ -96,6 +98,15 @@ lib_mysqludf_amqp_send(UDF_INIT *initid, UDF_ARGS *args, char* result, unsigned 
 
     int rc;
     conn_info_t *conn_info = (conn_info_t *) initid->ptr;
+
+    if (conn_info == NULL) {
+        // uninitialized, so error out
+        *is_null = 1;
+        *error = 1;
+
+        return NULL;
+    }
+
     amqp_table_entry_t headers[1];
     amqp_basic_properties_t props;
     props._flags = 0;
