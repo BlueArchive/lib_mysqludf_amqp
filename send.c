@@ -56,7 +56,7 @@ lib_mysqludf_amqp_send_init(UDF_INIT *initid, UDF_ARGS *args, char *message)
     // as that could be a Bad Thing (tm)
     struct timeval timeout;
     memset(&timeout, 0, sizeof(struct timeval));
-    timeout.tv_usec = 10 * 1000;   // wait no longer than 10ms for connection
+    timeout.tv_usec = 100 * 1000;   // wait no longer than 10ms for connection
 
     rc = amqp_socket_open_noblock(
         conn_info->socket,
