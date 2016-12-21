@@ -48,15 +48,15 @@ lib_mysqludf_amqp_send_init(UDF_INIT *initid, UDF_ARGS *args, char *message)
         goto init_error_destroy;;
     }
 
-    // wait no longer than 10ms for a connection to RabbitMQ
+    // wait no longer than 100ms for a connection to RabbitMQ
     // Cache invalidation signaling is (should be) robust
     // enough to miss an invalidation signal
     // Given than this can be called on every insert/update/delete row
     // We don't want to tie up a MySQL thread when connecting to RabbitMQ
-    // as that could be a Bad Thing (tm)
+    // as that could be a Bad Thing
     struct timeval timeout;
     memset(&timeout, 0, sizeof(struct timeval));
-    timeout.tv_usec = 100 * 1000;   // wait no longer than 10ms for connection
+    timeout.tv_usec = 100 * 1000;   // wait no longer than 100ms for connection
 
     rc = amqp_socket_open_noblock(
         conn_info->socket,
