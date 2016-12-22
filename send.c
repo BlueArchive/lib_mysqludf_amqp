@@ -48,7 +48,22 @@ lib_mysqludf_amqp_send_init(UDF_INIT *initid, UDF_ARGS *args, char *message)
         goto init_error_destroy;;
     }
 
-    rc = amqp_socket_open(conn_info->socket, args->args[0], (int)(*((long long *) args->args[1])));
+    // wait no longer than 100ms for a connection to RabbitMQ
+    // Cache invalidation signaling is (should be) robust
+    // enough to miss an invalidation signal
+    // Given than this can be called on every insert/update/delete row
+    // We don't want to tie up a MySQL thread when connecting to RabbitMQ
+    // as that could be a Bad Thing
+    struct timeval timeout;
+    memset(&timeout, 0, sizeof(struct timeval));
+    timeout.tv_usec = 100 * 1000;   // wait no longer than 100ms for connection
+
+    rc = amqp_socket_open_noblock(
+        conn_info->socket,
+        args->args[0],
+        (int)(*((long long *) args->args[1])),
+        &timeout
+    );
     if (rc < 0) {
         (void) strncpy(message, "lib_mysqludf_amqp_send: socket open error", MYSQL_ERRMSG_SIZE);
         goto init_error_destroy;
@@ -86,8 +101,10 @@ init_error_destroy:
     (void) amqp_destroy_connection(conn_info->conn);
     free(initid->ptr);
     initid->ptr = NULL;
+    initid->maybe_null = 1; /* returns NULL */
+    initid->const_item = 0; /* may return something different if called again */
 
-    return 1;
+    return 0;
 }
 
 char*
@@ -96,6 +113,15 @@ lib_mysqludf_amqp_send(UDF_INIT *initid, UDF_ARGS *args, char* result, unsigned 
 
     int rc;
     conn_info_t *conn_info = (conn_info_t *) initid->ptr;
+
+    if (conn_info == NULL) {
+        // uninitialized, so error out
+        *is_null = 1;
+        *error = 1;
+
+        return NULL;
+    }
+
     amqp_table_entry_t headers[1];
     amqp_basic_properties_t props;
     props._flags = 0;
