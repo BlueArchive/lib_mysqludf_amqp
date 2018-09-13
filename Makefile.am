@@ -15,3 +15,7 @@ uninstalldb:
 
 version:
 	mysql -u root -p --execute="SELECT lib_mysqludf_amqp_info();"
+
+ifneq ($(MAIN_DIR),)
+-include $(MAIN_DIR)/Makefile.common
+endif
