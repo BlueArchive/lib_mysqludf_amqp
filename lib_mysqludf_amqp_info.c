@@ -30,6 +30,7 @@ lib_mysqludf_amqp_info(UDF_INIT *initid, UDF_ARGS *args, char* result, unsigned 
     *length = (unsigned long) strlen(result);
 
     *is_null = 0;
+    *error = 0;
 
     return result;
 }
